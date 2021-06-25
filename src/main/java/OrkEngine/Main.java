@@ -8,7 +8,15 @@ import OrkEngine.graphics.VisualThread;
 
 public class Main {
 
+    public static int threads;
+
     public static void main(String[] args) {
+
+        threads = Runtime.getRuntime().availableProcessors() / 4;
+
+        if(threads < 1){
+            threads = 2;
+        }
 
         new VisualThread();
     }

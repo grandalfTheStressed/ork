@@ -5,6 +5,7 @@
 
 package OrkEngine.graphics;
 
+import OrkEngine.Main;
 import OrkEngine.math.matrices.Matrix4x4;
 import OrkEngine.math.matrices.PitchMatrix;
 import OrkEngine.math.matrices.TranslationMatrix;
@@ -63,7 +64,7 @@ public class VisualThread implements Runnable{
         Mesh terrainMesh = meshLoader.loadMesh("Terrain", "terrain.txt", 1f);
         Mesh cowMesh = meshLoader.loadMesh("Cow", "lowPolyCow.txt", .08f);
 
-        cowMesh.applyTransform(new TranslationMatrix(-500, 200,0));
+        cowMesh.applyTransform(new TranslationMatrix(-500, 200,0), null);
 
         meshes.add(terrainMesh);
         meshes.add(cowMesh);
@@ -81,24 +82,19 @@ public class VisualThread implements Runnable{
         PitchMatrix pm = new PitchMatrix(camera.getPitch());
         Matrix4x4 cameraMatrix = moveMatrix.multiply(ym.multiply(pm));
 
-        ArrayList<Mesh> meshClones = new ArrayList<>();
-
         ArrayList<RasterizedTriangle> rasterizedTriangles = new ArrayList<>();
 
         Vector3d viewPoint = camera.getCameraPos().add(camera.getCameraForward());
 
         IntStream.range(0, meshes.size()).forEach(i -> {
 
-            meshClones.add(meshes.get(i).clone());
+            Mesh meshClone = meshes.get(i).clone();
 
-            if(WINDOW.isLighting()){
+            meshClone.faceCull(viewPoint);
 
-                meshClones.get(i).applyLightingAndFaceCulling(vLight, viewPoint);
-            }
-
-            meshClones.get(i).applyTransform(cameraMatrix);
-            meshClones.get(i).clipTriangles();
-            meshClones.get(i).projection(rasterizedTriangles);
+            meshClone.applyTransform(cameraMatrix, vLight);
+            meshClone.clipTriangles();
+            meshClone.projection(rasterizedTriangles);
         });
 
         sort(rasterizedTriangles);
@@ -107,10 +103,15 @@ public class VisualThread implements Runnable{
 
         setBackground(.6f, .6f, 1f, frame.getGraphics());
 
-        for(RasterizedTriangle tri: rasterizedTriangles){
+        ArrayList<DrawingThread> threads = new ArrayList<>();
+        int totalThreadUsage = Main.threads;
+        int blockSize = (rasterizedTriangles.size()/totalThreadUsage) + (rasterizedTriangles.size() % totalThreadUsage > 0 ? 1 : 0);
 
-            drawTriangle(tri, frame.getGraphics());
+        for(int i = 0; i < totalThreadUsage; i++){
+            threads.add(new DrawingThread(rasterizedTriangles, i * blockSize, (i + 1) * blockSize, WIDTH, HEIGHT));
         }
+        for(DrawingThread thread: threads)
+            frame.getGraphics().drawImage(thread.stop(), 0, 0, null);
     }
 
     public void run(){
@@ -163,31 +164,6 @@ public class VisualThread implements Runnable{
         graphics.setColor(new Color(red, green, blue));
 
         graphics.fillRect(0, 0, WIDTH, HEIGHT);
-    }
-
-    public Color getColor(float red, float green, float blue, float brightness, float alpha){
-
-        return new Color(red * brightness, green * brightness, blue * brightness, alpha);
-    }
-
-    public void drawTriangle(RasterizedTriangle t, Graphics graphics){
-
-        Vector3d[] verts = t.getVerticesVectors();
-
-        int[] x = new int[3];
-        int[] y = new int[3];
-
-        x[0] = (int)((verts[0].getX() + 1) * .5f * WIDTH);
-        x[1] = (int)((verts[1].getX() + 1) * .5f * WIDTH);
-        x[2] = (int)((verts[2].getX() + 1) * .5f * WIDTH);
-
-        y[0] = (int)((verts[0].getY() + 1) * .5f * HEIGHT);
-        y[1] = (int)((verts[1].getY() + 1) * .5f * HEIGHT);
-        y[2] = (int)((verts[2].getY() + 1) * .5f * HEIGHT);
-
-        graphics.setColor(getColor(t.getRed(), t.getGreen(), t.getBlue(), t.getBrightness(), t.getAlpha()));
-
-        graphics.fillPolygon(x, y, 3);
     }
 
     public void passDetails(float fTimeElapsed){

@@ -112,12 +112,7 @@ public class Triangle implements Comparable<Triangle>, Cloneable{
 
     public float getBrightness(){
 
-        return brightness;
-    }
-
-    public void calcBrightness(){
-
-        brightness = (vertices[0].getBrightnessAtrb() + vertices[1].getBrightnessAtrb() + vertices[2].getBrightnessAtrb()) / 3;
+        return (vertices[0].getBrightnessAtrb() + vertices[1].getBrightnessAtrb() + vertices[2].getBrightnessAtrb()) / 3;
     }
 
     public float getAlpha(){

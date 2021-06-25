@@ -5,6 +5,7 @@
 
 package OrkEngine.modeling;
 
+import OrkEngine.Main;
 import OrkEngine.math.matrices.Matrix4x4;
 import OrkEngine.math.matrices.ProjectionMatrix;
 import OrkEngine.math.vectors.Vector3d;
@@ -69,37 +70,30 @@ public class Mesh implements Cloneable{
         sort(triangles);
     }
 
-    public void finishTriangles(ArrayList<RasterizedTriangle> rasterizedTriangles){
+    public void faceCull(Vector3d viewPoint){
 
-        IntStream.range(0, triangles.size()).forEach(i -> {
+        ArrayList<CullThread> threads = new ArrayList<>();
+        int totalThreadUsage = Main.threads;
+        int blockSize = (triangles.size()/totalThreadUsage) + (triangles.size() % totalThreadUsage > 0 ? 1 : 0);
 
-            if(triangles.get(i).isDraw())
-                rasterizedTriangles.add(new RasterizedTriangle(triangles.get(i)));
-        });
-    }
-
-    public void applyLightingAndFaceCulling(Vector3d light, Vector3d viewPoint){
-
-        IntStream.range(0, vertices.size()).forEach(i -> vertices.get(i).calcBrightness(light));
-        IntStream.range(0, triangles.size()).forEach(i -> {
-            triangles.get(i).calcBrightness();
-            faceCullTris(viewPoint, triangles.get(i));
-        });
-    }
-
-    public void applyTransform(Matrix4x4 m){
-
-        IntStream.range(0, vertices.size()).forEach(i -> vertices.get(i).transform(m));
-    }
-
-    public boolean faceCullTris(Vector3d viewPoint, Triangle t){
-
-        if(0 <= t.getTriangleNormal().dotProduct(t.getVerticesVectors()[0].sub(viewPoint))) {
-            t.dontDraw();
-            return false;
+        for(int i = 0; i < totalThreadUsage; i++){
+            threads.add(new CullThread(triangles, viewPoint,i * blockSize, (i + 1) * blockSize));
         }
+        for(CullThread thread: threads)
+            thread.stop();
+    }
 
-        return true;
+    public void applyTransform(Matrix4x4 m, Vector3d light){
+
+        ArrayList<TransformThread> threads = new ArrayList<>();
+        int totalThreadUsage = Main.threads;
+        int blockSize = (vertices.size()/totalThreadUsage) + (vertices.size() % totalThreadUsage > 0 ? 1 : 0);
+
+        for(int i = 0; i < totalThreadUsage; i++){
+            threads.add(new TransformThread(vertices, m, light,i * blockSize, (i + 1) * blockSize));
+        }
+        for(TransformThread thread: threads)
+            thread.stop();
     }
 
     public boolean viewPlaneCullTri(Triangle t){
@@ -147,7 +141,7 @@ public class Mesh implements Cloneable{
 
         ProjectionMatrix project = new ProjectionMatrix();
 
-        applyTransform(project);
+        applyTransform(project, null);
 
         for(Triangle t: triangles)
             if(t.isDraw())

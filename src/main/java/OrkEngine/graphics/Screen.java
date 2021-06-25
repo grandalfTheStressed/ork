@@ -8,12 +8,14 @@ package OrkEngine.graphics;
 import OrkEngine.math.vectors.Vector3d;
 import OrkEngine.modeling.RasterizedTriangle;
 import OrkEngine.math.matrices.ProjectionMatrix;
+import com.sun.management.OperatingSystemMXBean;
 
 import javax.swing.JPanel;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 
 class Screen extends JPanel {
@@ -27,7 +29,10 @@ class Screen extends JPanel {
     private final int WIDTH;
     private final int HEIGHT;
 
+    ArrayList<String> renderInfo;
+
     BufferedImage frame;
+    OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
 
     public Screen(int width, int height){
 
@@ -52,17 +57,11 @@ class Screen extends JPanel {
     }
 
     //temporary graphic just to keep track of this info
-    public void drawRenderInfo(int x, int y){
-
-        graphics.setColor(Color.black);
-        graphics.fillRoundRect((x - 5) , y, 125, 60, 10, 10);
-
-        graphics.setColor(Color.darkGray);
-        graphics.fillRoundRect(x, (y + 5), 115, 50, 8 ,8);
+    public void drawRenderInfo(int x, int y, ArrayList<String> renderInfo){
 
         graphics.setColor(Color.yellow);
-        graphics.drawString("Delta T: " + fDeltaT, (x + 5), (y + 25));
-        graphics.drawString("FPS: " + fFPS, (x + 5), (y + 45));
+        for(int i = 0; i < renderInfo.size(); i++)
+            graphics.drawString(renderInfo.get(i), x, y + i * 20);
     }
 
     public void paintComponent(Graphics g){
@@ -73,6 +72,17 @@ class Screen extends JPanel {
 
         graphics.drawImage(frame, 0, 0, null);
 
-        drawRenderInfo((int)(WIDTH * .92), 20);
+        int cpuUsage = (int)(osBean.getSystemCpuLoad() * 100);
+        long memTotal = (osBean.getTotalPhysicalMemorySize() / 1048576);
+        long memUsage = memTotal - (osBean.getFreePhysicalMemorySize() / 1048576);
+
+        renderInfo = new ArrayList<>();
+        renderInfo.add("Delta T: " + fDeltaT);
+        renderInfo.add("FPS: " + fFPS);
+        renderInfo.add("CPU Usage: " + cpuUsage +"%");
+        renderInfo.add("Threads: " + osBean.getAvailableProcessors());
+        renderInfo.add("Memory: " + memUsage+"MB" + "/" + memTotal+"MB");
+
+        drawRenderInfo(10, 20, renderInfo);
     }
 }
